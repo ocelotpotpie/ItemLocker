@@ -47,9 +47,9 @@ Access and Rotate Groups
 Every frame records two _groups_. (Note: these are _not_ the same as Bukkit
 permission groups.)
 
- 1. The _access_ group (which can be abbreviated in commands as _a_) is the set
+ 1. The _access_ group, which can be abbreviated in commands as _a_, is the set
     of players that can put into and take from the frame. 
- 1. The rotate group (which can be abbreviated in commands as _r_), is the set
+ 1. The rotate group, which can be abbreviated in commands as _r_, is the set
     of players that can rotate the frame.
 
 Each group can be one of three settings: 
@@ -85,41 +85,39 @@ the frame.
 
 Locking a Frame
 ---------------
-If auto-locking is enabled, simply place the frame to lock it.
- * A region may be automatically inferred per _Region Inference_, above.
- * The frame's permissions can be overridden by running `/ilock` before 
+ * If auto-locking is enabled, simply place the frame to lock it.
+   * A region may be automatically inferred per _Region Inference_, above.
+   * The frame's permissions can be overridden by running `/ilock` before 
      placing it.
 
-If auto-locking is _not_ enabled, run `/ilock` and place the frame.
+ * If auto-locking is _not_ enabled, run `/ilock` and place the frame.
 
-If the frame already exists and is not locked, run `/ilock` and right click on
-it to lock it.
+ * If the frame already exists and is not locked, run `/ilock` and right click on
+   it to lock it.
  
-To lock a frame and allow everyone in the _my_town_ region to put and take
-the item, but not rotate it: `/ilock r:my_town`
+ * To lock a frame and allow everyone in the _my_town_ region to put and take
+   the item, but not rotate it: `/ilock r:my_town`
+   (Recall that frames are locked with groups `+access` and `-rotate`, by default.)
 
-(Recall that frames are locked with groups `+access` and `-rotate`, by 
-default.)
+ * To lock many frames with the same setting, precede that command with 
+   `/ipersist`.
 
-To lock many frames with the same setting, precede that command with 
-`/ipersist`.
+ * To lock a frame and let the owner and region members rotate it: `/ilock r:regionname +rotate`
 
-To lock a frame and let the owner and region members rotate it: `/ilock r:regionname +r`
-
-To lock a frame and let everyone on the server rotate it but prevent them
-from adding or removing an item: `/ilock -a *r`, or equivalently: `/ilock -access *rotate`
+ * To lock a frame and let everyone on the server rotate it but prevent them
+   from adding or removing an item: `/ilock -a *r`, or equivalently: `/ilock -access *rotate`
 
 
 Unlocking a Frame
 -----------------
-If a frame is empty and you are a member (including the owner), simply punch it.
-It will break and is then unlocked.
+ * If a frame is empty and you are a member (including the owner), simply punch it.
+   It will break and is then unlocked.
 
-To unlock a frame, even if it contains an item, run `/iunlock` and right click
-on the frame. 
+ * To unlock a frame, even if it contains an item, run `/iunlock` and right click
+   on the frame. 
 
-To unlock many frames, run `/ipersist` before `/iunlock`, then right click
-on all the frames.
+ * To unlock many frames, run `/ipersist` before `/iunlock`, then right click
+   on all the frames.
 
 
 Command Persistence
@@ -132,6 +130,8 @@ run `/ipersist` again, or the server restarts.
 Modifying Frame Permissions
 ---------------------------
 To change the region of a locked frame, run `/imodify r:regionname`.
+
+To remove the region of a locked frame, run `/imodify r:-`.
 
 To make the item in a locked frame accessible to:
 
