@@ -1,0 +1,7 @@
+debug:
+  config: true
+  events: false
+
+floating-frames: true
+auto-lock: true
+auto-lock-region: true
