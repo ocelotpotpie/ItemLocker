@@ -304,8 +304,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         Player player = (event.getRemover() instanceof Player) ? (Player) event.getRemover() : null;
         boolean bypassing = (player != null && getMetadata(player, BYPASS_KEY) != null);
 
-        if (event.getCause() != HangingBreakEvent.RemoveCause.PHYSICS &&
-            !bypassing && !lock.permits(player)) {
+        if (!bypassing && !lock.permits(player)) {
             event.setCancelled(true);
             if (player != null) {
                 accessDeniedMessage(player, "break", lock);
@@ -328,9 +327,16 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
         ItemFrame frame = (ItemFrame) event.getEntity();
         ItemLock lock = new ItemLock(frame);
-        if (event.getCause() == HangingBreakEvent.RemoveCause.PHYSICS &&
-            CONFIG.FLOATING_FRAMES && lock.isOwned()) {
-            event.setCancelled(true);
+        if (lock.isOwned()) {
+            if (event.getCause() == HangingBreakEvent.RemoveCause.PHYSICS) {
+                if (CONFIG.FLOATING_FRAMES) {
+                    event.setCancelled(true);
+                }
+            } else {
+                if (event.getCause() != HangingBreakEvent.RemoveCause.ENTITY) {
+                    event.setCancelled(true);
+                }
+            }
         }
         // Potential to log dropped item here if floating frames not enabled.
     }
