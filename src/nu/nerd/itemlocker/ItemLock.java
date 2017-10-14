@@ -20,22 +20,6 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
  * To be "locked" an ItemFrame must have a non-null owner (stored as a player
  * UUID string). Locked ItemFrames can optionally have a region name listing
  * players who can run commands affecting the ItemFrame.
- * 
- * Some common scenarios:
- * <ul>
- * <li>A town labels their chests with items in item frames. The items are
- * locked to the town region so any town member can administer the frames. The
- * rotate flag is set to false so the items will always stay the right way up.
- * The access flag can be set true or false depending on whether the chests are
- * being relabelled or not. Nobody outside the town can alter the frames.
- * Because the frames are on LWC locked chests, they cannot be taken down by
- * anyone until the frames are unlocked.</li>
- * <li>A town makes a rail station selector dial with an item frame. The frame
- * is put in a WorldGuard build: allow region so that anyone can interact with
- * it (this is the intended behaviour for WorldGuard). The access option is set
- * false, so the item cannot be removed. The rotate and public options are set
- * true, so any player can rotate the dial.</li>
- * </ul>
  */
 public class ItemLock {
     // ------------------------------------------------------------------------
@@ -44,6 +28,8 @@ public class ItemLock {
      * 
      * Permission attributes are initialised from the scoreboard tags of the
      * specified frame.
+     * 
+     * @param frame the frame.
      */
     public ItemLock(ItemFrame frame) {
         _frame = frame;

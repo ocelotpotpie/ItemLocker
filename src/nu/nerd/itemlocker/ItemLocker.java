@@ -252,7 +252,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                 }
             }
         }
-    } // onEntityInteract
+    } // onPlayerInteractEntity
 
     // ------------------------------------------------------------------------
     /**
@@ -290,10 +290,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
      * directly by:
      * <ul>
      * <li>their owner or members,</li>
-     * <li>their owner or members,</li>
-     * <li>someone in bypass mode,</li>
-     * <li>removing the supporting block (RemoveCause.PHYSICS) when floating
-     * frames are not enabled.</li>
+     * <li>someone in bypass mode.</li>
      * </ul>
      */
     @EventHandler(ignoreCancelled = true)
