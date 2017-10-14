@@ -19,7 +19,7 @@ permissions:
     default: op
 
   itemlocker.user:
-    description: Permission to use /ilock, /iunlock and /iinfo.
+    description: Permission to use /ipersist, /ilock, /imodify, /iunlock and /iinfo.
     default: op
 
 commands:

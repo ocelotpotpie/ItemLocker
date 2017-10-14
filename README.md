@@ -1,6 +1,6 @@
 ItemLocker
 ==========
-Locks Item frames.
+Locks item frames.
 
 Features
 --------
@@ -85,51 +85,97 @@ the frame.
 
 Locking a Frame
 ---------------
-To lock a frame:
-
- * If auto-locking is enabled, simply place the frame.
-   * A region may be automatically inferred per _Region Inference_, above.
-   * The frame's permissions can be overridden by running `/ilock` before 
+If auto-locking is enabled, simply place the frame to lock it.
+ * A region may be automatically inferred per _Region Inference_, above.
+ * The frame's permissions can be overridden by running `/ilock` before 
      placing it.
 
- * If auto-locking is _not_ enabled, run `/ilock` and place the frame.
+If auto-locking is _not_ enabled, run `/ilock` and place the frame.
+
+If the frame already exists and is not locked, run `/ilock` and right click on
+it to lock it.
  
- * To lock a frame and allow everyone in the _my_town_ region to put and take
-   the item, but not rotate it:
+To lock a frame and allow everyone in the _my_town_ region to put and take
+the item, but not rotate it: `/ilock r:my_town`
 
-    /ilock r:my_town
-
-   (Recall that frames are locked with groups `+access` and `-rotate`, by 
+(Recall that frames are locked with groups `+access` and `-rotate`, by 
 default.)
 
- * To lock many frames with the same setting, precede that command with 
+To lock many frames with the same setting, precede that command with 
 `/ipersist`.
- * To lock a frame and let the owner and region members rotate it:
 
-    /ilock r:regionname +r
+To lock a frame and let the owner and region members rotate it: `/ilock r:regionname +r`
 
- * To lock a frame and let everyone on the server rotate it but prevent them
-   from adding or removing an item:
-
-    /ilock -a *r
-
-   or equivalently:
-
-    /ilock -access *rotate
+To lock a frame and let everyone on the server rotate it but prevent them
+from adding or removing an item: `/ilock -a *r`, or equivalently: `/ilock -access *rotate`
 
 
 Unlocking a Frame
 -----------------
+If a frame is empty and you are a member (including the owner), simply punch it.
+It will break and is then unlocked.
 
+To unlock a frame, even if it contains an item, run `/iunlock` and right click
+on the frame. 
+
+To unlock many frames, run `/ipersist` before `/iunlock`, then right click
+on all the frames.
+
+
+Command Persistence
+-------------------
+Run `/ipersist` to turn on command persistence. Any command you type will
+take effect on all subsequent item frames that you interact with until you
+run `/ipersist` again, or the server restarts.
+
+
+Modifying Frame Permissions
+---------------------------
+To change the region of a locked frame, run `/imodify r:regionname`.
+
+To make the item in a locked frame accessible to:
+
+ * _nobody_, not even the owner: `/imodify -a` or `/imodify -access`
+ * _members_, region and owner: `/imodify +a` or `/imodify +access`
+ * _everybody_ on the server: `/imodify *a` or `/imodify *access`
+ 
+To allow the item in a locked frame to be rotated by:
+
+ * _nobody_, not even the owner: `/imodify -r` or `/imodify -rotate`
+ * _members_, region and owner: `/imodify +r` or `/imodify +rotate`
+ * _everybody_ on the server: `/imodify *r` or `/imodify *rotate`
+ 
+All of these arguments can be combined in a single command, and are subject to
+command persistence.
 
 
 Player Command Reference
 ------------------------
+Command syntax is described in full by in-game help. Just do `/help ItemLocker`
+or run `/help` for a specific command, e.g. `/help ilock`.
 
 
-Staff Commands Reference
-------------------------
+Staff Commands
+--------------
+Staff with the `itemlocker.bypass` permission have additional capabilities:
 
+ * They can bypass permission checks on frames to rotate, access items, and
+   break the frame using the `/ibypass` command. Run the command once to
+   turn on bypass mode. Run it again to turn off bypass mode.
+   
+ * They can lock a frame on behalf of a player by specifying the player name
+   in `/ilock` arguments, e.g. `/ilock totemo`. The specified player becomes
+   the frame owner.
+   
+ * They can modify the region and access groups of a frame, 
+   e.g. `/imodify r:pico +a -r`. 
+   * To prevent accidental modification of the permissions of player frames
+     (see below) it will usually be necessary to be in bypass mode when running
+     `/imodify` in this way, unless the staff member is already a member of
+     the frame.
+   
+ * They can break the frame. If not a member of the frame, staff will need to
+   enable `/ibypass` to do this.
 
 
 Configuration
@@ -145,4 +191,14 @@ Configuration
 
 Permissions
 -----------
+ * `itemlocker.console`:
+   * Permission to use commands that require console access.
+   * Default: op
 
+ * `itemlocker.bypass`:
+   * Permission to bypass ownership checks on frames. Frames can be unlocked and locked to anyone.
+   * Default: op
+
+ * `itemlocker.user`:
+   * Permission to use `/ipersist`, `/ilock`, `/imodify`, `/iunlock` and `/iinfo`.
+   * Default: op
