@@ -175,7 +175,7 @@ Staff with the `itemlocker.bypass` permission have additional capabilities:
      the frame.
    
  * They can break the frame. If not a member of the frame, staff will need to
-   enable `/ibypass` to do this.
+   enable bypass mode to do this.
 
 
 Configuration
@@ -184,7 +184,7 @@ Configuration
 | :------           | :------ | :---------- |
 | `debug.config`  | true    | If true, log configuration settings when loaded. |
 | `debug.events`  | false   | If true, show extra debug messages in event handlers. |
-| `floating-frames` | If true, owned frames will float in the air rather than break when their supporting block is removed. |
+| `floating-frames` | true  | If true, owned frames will float in the air rather than break when their supporting block is removed. |
 | `auto-lock`     | true    | If true, automatically lock frames when placed. | 
 | `auto-lock-region` | true | If true, automatically infer the region of automatically locked frames. |
 
