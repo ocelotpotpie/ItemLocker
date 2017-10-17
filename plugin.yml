@@ -15,7 +15,7 @@ permissions:
     default: op
 
   itemlocker.bypass:
-    description: Permission to bypass ownership checks on frames. Frames can be unlocked and locked to anyone.
+    description: Permission to bypass ownership checks on frames and stands. They can be unlocked and locked to anyone.
     default: op
 
   itemlocker.user:
@@ -37,8 +37,8 @@ commands:
     
       §e/<command> help§f - Show usage help.
       §e/<command>§f - Toggles bypass mode. In bypass mode, you can 
-        execute commands on item frames even if you are neither
-        owner nor a region member.
+        execute commands on frames and stands even if you are
+        neither owner nor a region member.
 
   ipersist:
     description: Toggle persistent commands.
@@ -46,62 +46,63 @@ commands:
     usage: |
     
       §e/<command> help§f - Show usage help.
-      §e/<command>§f - Keep executing the next item frame command until
+      §e/<command>§f - Keep executing the next frame/stand command until
         you run /ipersist again.
 
   ilock:
-    description: Lock the orientation of an item frame.
+    description: Lock an item frame or armor stand.
     permission: itemlocker.user
     usage: |
       
       §e/<command> help§f - Show usage help.
       §e/<command> §f[§er:<region>§f] [§e<access and rotate permissions>§f]
-        - Lock the next item frame you right click on, optionally 
-          specifying a WorldGuard region whose owners and members 
-          also have access. See §e/help imodify§f for an explanation 
-          of access and rotate permissions.
+        - Lock the next frame or stand you place or right click,
+          optionally specifying a WorldGuard region whose owners and
+          members also have access. See §e/help imodify§f for an
+          explanation of access and rotate permissions.
       §e/<command> <player> §f[§er:<region>§f] [§e<access and rotate permissions>§f] 
-        - Admin variant: lock a frame on behalf of the specified 
-          player and optional WorldGuard region with optional 
-          access/rotate permissions.
+        - Staff variant: lock a frame or stand on behalf of the
+          specified player and optional WorldGuard region with
+          optional access/rotate permissions.
 
   imodify:
-    description: Change the region and/or permission groups of an item frame.
+    description: Change the region and/or permission groups of an item frame or armor stand.
     permission: itemlocker.user
     usage: |
     
       §e/<command> help§f - Show usage help.
       §e/<command> §f[§er:<region>§f] [(§e-§f|§e+§f|§e*§f)§eaccess§f] [(§e-§f|§e+§f|§e*§f)§erotate§f] 
-        - Change the region and/or permission groups of an item
-          frame. Use §e/<command> r:-§f to clear an existing region.
-          Frames record two groups. The §eaccess§f group (which can
-          be abbreviated as §ea§f) is the set of players that can put into
-          and take from the frame. The §erotate§f group (which can be
-          abbreviated as §er§f), is the set of players that can rotate the
-          frame. Each group can be one of three settings: nobody (§e-§f),
-          members (§e+§f), or public (§e*§f).
+        - Change the region and/or permission groups of a frame or
+          stand. Use §e/<command> r:-§f to clear an existing region.
+          Item frames record §eaccess§f and §erotate§f groups, whereas
+          armor stands only record the former. The §eaccess§f group
+          (which can be abbreviated as §ea§f) is the set of players that
+          can put into and take from the frame/stand. The §erotate§f group
+          (which can be abbreviated as §er§f), is the set of players that
+          can rotate the frame. Each group can be one of three
+          settings: nobody (§e-§f), members (§e+§f), or public (§e*§f).
           Example: §e/<command> r:my_region +a *r§f
-          allows only the frame owner and owners/members of
-          WorldGuard region "my_region" to access the item in the
-          frame, but allows any player to rotate it. Note that access
-          and rotate permissions can be set without changing the
-          region, if desired.
+          allows only the frame/stand owner and owners/members of
+          WorldGuard region "my_region" to access items held by the
+          frame or stand, but allows any player to rotate it. Note that
+          access and rotate permissions can be set without changing
+          the region, if desired.
         
   iunlock:
-    description: Unlock the orientation of an item frame.
+    description: Unlock an item frame or armor stand.
     permission: itemlocker.user
     usage: |
     
       §e/<command> help§f - Show usage help.
-      §e/<command>§f - Unlock the next item frame you right click on. You
-        must be the owner of the frame or an owner/member of the
-        frame's region to unlock it.
+      §e/<command>§f - Unlock the next frame/stand you right click on. You
+        must be its owner or an owner/member of its region to unlock
+        it.
 
   iinfo:
-    description: Show the permissions of an item frame.
+    description: Show the permissions of an item frame or armor stand.
     permission: itemlocker.user
     usage: |
     
       §e/<command> help§f - Show usage help.
-      §e/<command>§f - Show the permissions of the next item frame you
-        right click on.
+      §e/<command>§f - Show the permissions of the next item frame or
+      armor stand you right click on.

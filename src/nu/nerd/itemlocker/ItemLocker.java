@@ -1,5 +1,6 @@
 package nu.nerd.itemlocker;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -11,6 +12,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -20,11 +22,16 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.CreatureSpawnEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.metadata.Metadatable;
@@ -114,10 +121,10 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
             boolean isBypassing = (getMetadata(player, BYPASS_KEY) != null);
             if (isBypassing) {
-                player.sendMessage(ChatColor.GOLD + "You will no longer bypass item frame permission checks.");
+                player.sendMessage(ChatColor.GOLD + "You will no longer bypass frame/stand permission checks.");
                 player.removeMetadata(BYPASS_KEY, this);
             } else {
-                player.sendMessage(ChatColor.GOLD + "You can now bypass item frame permission checks!");
+                player.sendMessage(ChatColor.GOLD + "You can now bypass frame/stand permission checks!");
                 player.setMetadata(BYPASS_KEY, new FixedMetadataValue(this, null));
             }
             return true;
@@ -130,13 +137,13 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
             boolean isPersistent = (getMetadata(player, PERSIST_KEY) != null);
             if (isPersistent) {
-                player.sendMessage(ChatColor.GOLD + "Your item frame actions will no longer persist.");
+                player.sendMessage(ChatColor.GOLD + "Your frame/stand actions will no longer persist.");
                 player.removeMetadata(PERSIST_KEY, this);
 
                 // Clear the previous action.
                 player.removeMetadata(ACTION_KEY, this);
             } else {
-                player.sendMessage(ChatColor.GOLD + "Your item frame actions will now persist.");
+                player.sendMessage(ChatColor.GOLD + "Your frame/stand actions will now persist.");
                 player.setMetadata(PERSIST_KEY, new FixedMetadataValue(this, null));
             }
             return true;
@@ -154,7 +161,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                     PermissionChange permissions = (PermissionChange) parsed;
                     OfflinePlayer owner = (permissions.getOwner() != null ? permissions.getOwner() : player);
                     String ownerMessage = player.equals(owner) ? "you" : owner.getName();
-                    sender.sendMessage(ChatColor.GREEN + "The next item frame you right click will be locked to " +
+                    sender.sendMessage(ChatColor.GREEN + "The next frame or stand you place or right click will be locked to " +
                                        ChatColor.YELLOW + ownerMessage + ChatColor.GREEN + ".");
                     commandArgs.put("permissions", permissions);
                 }
@@ -171,7 +178,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                     return true;
                 } else {
                     PermissionChange permissions = (PermissionChange) parsed;
-                    sender.sendMessage(ChatColor.GREEN + "Click on an item frame to change its permissions.");
+                    sender.sendMessage(ChatColor.GREEN + "Right click a frame or stand to change its permissions.");
                     commandArgs.put("permissions", permissions);
                 }
 
@@ -181,7 +188,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                     return true;
                 }
 
-                sender.sendMessage(ChatColor.GREEN + "Right click an item frame to unlock it.");
+                sender.sendMessage(ChatColor.GREEN + "Right click a frame or stand to unlock it.");
 
             } else if (commandName.equals("iinfo")) {
                 if (args.length > 0) {
@@ -189,7 +196,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                     return true;
                 }
 
-                sender.sendMessage(ChatColor.GREEN + "Right click an item frame to see who owns it.");
+                sender.sendMessage(ChatColor.GREEN + "Right click a frame or stand to see who owns it.");
             }
 
             // Drop the leading 'i' in the command name.
@@ -203,81 +210,101 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
     // ------------------------------------------------------------------------
     /**
-     * Handle players right clicking item frames by extracting information about
-     * their last command and /ipersist state from player metadata.
+     * Record the details of a player placing an armour stand so that the entity
+     * can be locked to the player when it spawns.
+     * 
+     * There is no event in the Bukkit API that records which player spawned an
+     * armour stand.
      */
-    @SuppressWarnings("unchecked")
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    protected void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        Entity entity = event.getRightClicked();
-        if (entity.getType() != EntityType.ITEM_FRAME) {
-            return;
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    protected void onPlayerInteract(PlayerInteractEvent event) {
+        if (event.getAction() == Action.RIGHT_CLICK_BLOCK &&
+            event.getMaterial() == Material.ARMOR_STAND) {
+            Block standBlock = event.getClickedBlock().getRelative(event.getBlockFace());
+            Location loc = standBlock.getLocation().add(0.5, 0, 0.5);
+            _placements.add(new StandPlacement(event.getPlayer(), loc));
         }
-
-        ItemFrame frame = (ItemFrame) entity;
-        ItemLock lock = new ItemLock(frame);
-        Player player = event.getPlayer();
-        boolean bypassing = (getMetadata(player, BYPASS_KEY) != null);
-
-        if (CONFIG.DEBUG_EVENTS) {
-            getLogger().info("PlayerInteractEntity: " + player.getName() + " " + lock +
-                             (bypassing ? " bypass" : "") + " " + frame.getItem());
-        }
-
-        MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
-        if (actionMeta != null) {
-            performCommandAction(player, bypassing, lock, (Map<String, Object>) actionMeta.value());
-            event.setCancelled(true);
-
-            boolean persistent = (getMetadata(player, PERSIST_KEY) != null);
-            if (!persistent) {
-                player.removeMetadata(ACTION_KEY, this);
-            }
-            return;
-        }
-
-        // No command action. Handle players right clicking frames.
-        if (!bypassing) {
-            if (frame.getItem() == null || frame.getItem().getType() == Material.AIR) {
-                // Player placing an item. Note: isEmpty() is for vehicles.
-                if (!lock.canBeAccessedBy(player)) {
-                    event.setCancelled(true);
-                    accessDeniedMessage(player, "access", lock);
-                }
-            } else {
-                // Player rotating an item.
-                if (!lock.canBeRotatedBy(player)) {
-                    event.setCancelled(true);
-                    accessDeniedMessage(player, "rotate", lock);
-                }
-            }
-        }
-    } // onPlayerInteractEntity
+    }
 
     // ------------------------------------------------------------------------
     /**
-     * Don't let players or projectiles knock items out of owned frames.
+     * When an armour stand spawns, find the corresponding
+     * {@link StandPlacement} so that we can lock the stand to the player that
+     * placed it.
+     */
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    protected void onCreatureSpawn(CreatureSpawnEvent event) {
+        if (event.getEntityType() == EntityType.ARMOR_STAND &&
+            event.getSpawnReason() == SpawnReason.DEFAULT) {
+            for (int i = _placements.size() - 1; i >= 0; --i) {
+                StandPlacement placement = _placements.get(i);
+                Location loc = event.getLocation();
+                if (placement.matches(loc)) {
+                    doLockOnPlace(placement.getPlayer(), event.getEntity());
+                    _placements.remove(i);
+                } else if (placement.isOutdated(loc)) {
+                    _placements.remove(i);
+                }
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Handle players right clicking item frames.
+     */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    protected void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        Entity entity = event.getRightClicked();
+        if (entity.getType() == EntityType.ITEM_FRAME) {
+            handleInteraction(event);
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Handle players right clicking armour stands.
+     */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    protected void onPlayerInteractAtEntity(PlayerInteractAtEntityEvent event) {
+        Entity entity = event.getRightClicked();
+        if (entity.getType() == EntityType.ARMOR_STAND) {
+            handleInteraction(event);
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Don't let players or projectiles knock items out of owned frames or
+     * stands.
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     protected void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
         Entity entity = event.getEntity();
-        if (entity.getType() != EntityType.ITEM_FRAME) {
+        if (entity.getType() != EntityType.ITEM_FRAME &&
+            entity.getType() != EntityType.ARMOR_STAND) {
             return;
         }
 
-        ItemFrame frame = (ItemFrame) entity;
-        ItemLock lock = new ItemLock(frame);
+        ItemLock lock = new ItemLock(entity);
 
         // If a player directly left clicks, message them when denied.
         if (event.getDamager() instanceof Player) {
             Player player = (Player) event.getDamager();
             boolean bypassing = (getMetadata(player, BYPASS_KEY) != null);
+
+            if (CONFIG.DEBUG_EVENTS) {
+                getLogger().info("onEntityDamageByEntity: " + player.getName() + " " + lock +
+                                 (bypassing ? " bypass" : "") + " " +
+                                 lock.getItems().stream().map((i) -> i.toString()).collect(Collectors.joining(", ")));
+            }
+
             if (!bypassing && !lock.canBeAccessedBy(player)) {
                 event.setCancelled(true);
                 accessDeniedMessage(player, "access", lock);
             }
         } else {
-            // Projectiles can't remove items from owned frames.
+            // Projectiles can't remove items from owned frames and stands.
             if (lock.isOwned()) {
                 event.setCancelled(true);
             }
@@ -344,41 +371,48 @@ public class ItemLocker extends JavaPlugin implements Listener {
     // ------------------------------------------------------------------------
     /**
      * When a player places an item frame, if auto-locking is enabled, lock it
-     * to the player. In addition, if auto region locking is enabled, add the
-     * most specific region to the lock.
+     * to the player.
      */
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     protected void onHangingPlace(HangingPlaceEvent event) {
-        if (event.getEntity().getType() != EntityType.ITEM_FRAME ||
-            !CONFIG.AUTO_LOCK) {
-            return;
+        if (event.getEntity().getType() == EntityType.ITEM_FRAME) {
+            doLockOnPlace(event.getPlayer(), event.getEntity());
         }
+    }
 
-        ItemFrame frame = (ItemFrame) event.getEntity();
-        ItemLock lock = new ItemLock(frame);
-        Player player = event.getPlayer();
+    // ------------------------------------------------------------------------
+    /**
+     * If a player runs `/ilock` before placing a frame or stand, or if
+     * automatic locking is enabled, lock the frame/stand.
+     * 
+     * If auto region locking is enabled, add the most specific region to the
+     * lock.
+     */
+    protected void doLockOnPlace(Player player, Entity entity) {
+        ItemLock lock = new ItemLock(entity);
 
-        // If the player runs /ilock before placing, use owner/region from that.
+        // If the player runs /ilock before placing, use owner/region from
+        // that.
         MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
         if (actionMeta != null) {
             Map<String, Object> args = (Map<String, Object>) actionMeta.value();
             if (args.get("command").equals("lock")) {
                 PermissionChange permissions = (PermissionChange) args.get("permissions");
                 doLock(player, lock, permissions);
+
+                boolean persistent = (getMetadata(player, PERSIST_KEY) != null);
+                if (!persistent) {
+                    player.removeMetadata(ACTION_KEY, this);
+                }
             }
 
-            boolean persistent = (getMetadata(player, PERSIST_KEY) != null);
-            if (!persistent) {
-                player.removeMetadata(ACTION_KEY, this);
-            }
-
-        } else {
+        } else if (CONFIG.AUTO_LOCK) {
             // Infer permissions from context.
             Set<String> regions = null;
             String regionName = null;
 
             if (CONFIG.AUTO_LOCK_REGION) {
-                regions = getMostSpecificRegionNames(frame.getLocation());
+                regions = getMostSpecificRegionNames(entity.getLocation());
                 if (regions.size() == 1) {
                     regionName = regions.stream().findFirst().get();
                 }
@@ -391,7 +425,59 @@ public class ItemLocker extends JavaPlugin implements Listener {
                                    .collect(Collectors.joining(ChatColor.GOLD + ", ")));
             }
         }
-    } // onHangingPlace
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Handle players right clicking item frames and armour stands.
+     * 
+     * The player's current command and /ipersist state is extracted from their
+     * metadata.
+     * 
+     * For item frames, rotation is distinguished from item access according to
+     * whether the frame is empty or not.
+     */
+    protected void handleInteraction(PlayerInteractEntityEvent event) {
+        Entity entity = event.getRightClicked();
+        ItemLock lock = new ItemLock(entity);
+        Player player = event.getPlayer();
+        boolean bypassing = (getMetadata(player, BYPASS_KEY) != null);
+
+        if (CONFIG.DEBUG_EVENTS) {
+            getLogger().info("handleInteraction: " + player.getName() + " " + lock +
+                             (bypassing ? " bypass" : "") + " " +
+                             lock.getItems().stream().map((i) -> i.toString()).collect(Collectors.joining(", ")));
+        }
+
+        MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
+        if (actionMeta != null) {
+            performCommandAction(player, bypassing, lock, (Map<String, Object>) actionMeta.value());
+            event.setCancelled(true);
+
+            boolean persistent = (getMetadata(player, PERSIST_KEY) != null);
+            if (!persistent) {
+                player.removeMetadata(ACTION_KEY, this);
+            }
+            return;
+        }
+
+        // No command action. Handle players right clicking.
+        if (!bypassing) {
+            if (lock.isEmpty() || !lock.isFrame()) {
+                // Player placing an item.
+                if (!lock.canBeAccessedBy(player)) {
+                    event.setCancelled(true);
+                    accessDeniedMessage(player, "access", lock);
+                }
+            } else {
+                // Player rotating an item.
+                if (!lock.canBeRotatedBy(player)) {
+                    event.setCancelled(true);
+                    accessDeniedMessage(player, "rotate", lock);
+                }
+            }
+        }
+    }
 
     // ------------------------------------------------------------------------
     /**
@@ -424,7 +510,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         } else if (action.equals("unlock")) {
             if (bypassing || lock.permits(player)) {
                 lock.unlock();
-                player.sendMessage(ChatColor.GOLD + "Item frame unlocked!");
+                player.sendMessage(ChatColor.GOLD + "That " + lock.getEntityType() + " is now unlocked!");
             } else {
                 accessDeniedMessage(player, "unlock", lock);
             }
@@ -438,14 +524,13 @@ public class ItemLocker extends JavaPlugin implements Listener {
                                                         : ChatColor.LIGHT_PURPLE + "<none>";
             player.sendMessage(ChatColor.GOLD + "Owner: " + ownerDescription +
                                ChatColor.GOLD + ", region: " + regionDescription);
-            player.sendMessage(ChatColor.GOLD + "Access group: " + lock.getAccessGroup().formatted() +
-                               ChatColor.GOLD + ", rotate group: " + lock.getRotateGroup().formatted());
+            permissionMessage(player, lock);
         }
     } // performCommandAction
 
     // ------------------------------------------------------------------------
     /**
-     * Lock or modify permissions of a frame and message the player who
+     * Lock or modify permissions of a frame or stand and message the player who
      * performed the action.
      * 
      * @param player the player creating the lock.
@@ -459,7 +544,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                 lock.setOwnerUuid(permissions.getOwner().getUniqueId());
             }
         } else {
-            // Lock an unlocked frame.
+            // Lock an unlocked entity.
             OfflinePlayer newOwner = (permissions.getOwner() != null ? permissions.getOwner() : player);
             lock.setOwnerUuid(newOwner.getUniqueId());
         }
@@ -481,30 +566,44 @@ public class ItemLocker extends JavaPlugin implements Listener {
         }
 
         StringBuilder s = new StringBuilder();
-        s.append(ChatColor.GOLD).append("That item frame now belongs to ");
+        s.append(ChatColor.GOLD).append("That " + lock.getEntityType() + " now belongs to ");
         s.append(getOwnerAndRegionString(player, lock));
         s.append(ChatColor.GOLD).append(".");
         player.sendMessage(s.toString());
-        player.sendMessage(ChatColor.GOLD + "Access group: " + lock.getAccessGroup().formatted() +
-                           ChatColor.GOLD + ", rotate group: " + lock.getRotateGroup().formatted());
+        permissionMessage(player, lock);
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Show a standard error message when a player tries to access an item frame
-     * that they are not allowed to.
+     * Show a standard error message when a player tries to access a frame or
+     * stand that they are not allowed to.
      * 
      * @param player the player.
      * @param verb a word describing the action performed; to be interpolated
      *        into the message.
-     * @param lock information about the item frame lock.
+     * @param lock information about the lock.
      */
     protected void accessDeniedMessage(Player player, String verb, ItemLock lock) {
-        player.sendMessage(ChatColor.RED + "You can't " + verb + " that item frame!");
+        player.sendMessage(ChatColor.RED + "You can't " + verb + " that " + lock.getEntityType() + "!");
         player.sendMessage(ChatColor.GOLD + "It is owned by " + getOwnerAndRegionString(player, lock) +
                            ChatColor.GOLD + ".");
-        player.sendMessage(ChatColor.GOLD + "Access group: " + lock.getAccessGroup().formatted() +
-                           ChatColor.GOLD + ", rotate group: " + lock.getRotateGroup().formatted());
+        permissionMessage(player, lock);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Send a player a message detailing the permission groups of a lock.
+     * 
+     * @param player the player.
+     * @param lock the lock.
+     */
+    protected void permissionMessage(Player player, ItemLock lock) {
+        StringBuilder s = new StringBuilder();
+        s.append(ChatColor.GOLD).append("Access group: ").append(lock.getAccessGroup().formatted());
+        if (lock.isFrame()) {
+            s.append(ChatColor.GOLD).append(", rotate group: ").append(lock.getRotateGroup().formatted());
+        }
+        player.sendMessage(s.toString());
     }
 
     // ------------------------------------------------------------------------
@@ -521,7 +620,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
     // ------------------------------------------------------------------------
     /**
      * Get a coloured string listing the owner and region name of an owned
-     * frame, for use in messages.
+     * frame/stand, for use in messages.
      * 
      * @param player the player.
      * @param lock the lock information; must have an owner.
@@ -584,7 +683,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
     // ------------------------------------------------------------------------
     /**
      * Metadata key for metadata recording the name and arguments of the
-     * player's last item frame action.
+     * player's last frame/stand action.
      */
     private static final String ACTION_KEY = "action";
 
@@ -605,4 +704,14 @@ public class ItemLocker extends JavaPlugin implements Listener {
      * The WorldGuard plugin.
      */
     private WorldGuardPlugin _worldGuard;
+
+    /**
+     * List of {@link StandPlacement} details of armour stands, used to work out
+     * which player spawned a stand.
+     * 
+     * These are only retained for the brief time between the
+     * PlayerInteractEvent where the player places the stand and the subsequent
+     * CreatureSpawnEvent when the stand entity spawns.
+     */
+    private final ArrayList<StandPlacement> _placements = new ArrayList<>();
 } // class ItemLocker

@@ -1,12 +1,20 @@
 package nu.nerd.itemlocker;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.UUID;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 import com.sk89q.worldguard.LocalPlayer;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
@@ -15,11 +23,12 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
 // ----------------------------------------------------------------------------
 /**
- * Accesses lock information in the scoreboard tags of an ItemFrame.
+ * Accesses lock information in the scoreboard tags of an ItemFrame or
+ * ArmorStand.
  * 
- * To be "locked" an ItemFrame must have a non-null owner (stored as a player
- * UUID string). Locked ItemFrames can optionally have a region name listing
- * players who can run commands affecting the ItemFrame.
+ * To be "locked" an entity must have a non-null owner (stored as a player UUID
+ * string). Locked entities can optionally have a region name listing players
+ * who can run commands affecting the entity.
  */
 public class ItemLock {
     // ------------------------------------------------------------------------
@@ -27,18 +36,18 @@ public class ItemLock {
      * Constructor.
      * 
      * Permission attributes are initialised from the scoreboard tags of the
-     * specified frame.
+     * specified frame or stand.
      * 
-     * @param frame the frame.
+     * @param entity the item frame or armour stand entity.
      */
-    public ItemLock(ItemFrame frame) {
-        _frame = frame;
+    public ItemLock(Entity entity) {
+        _entity = entity;
         parseTags();
     }
 
     // ------------------------------------------------------------------------
     /**
-     * Unlock the frame.
+     * Unlock the frame/stand.
      */
     public void unlock() {
         setOwnerUuid(null);
@@ -50,10 +59,10 @@ public class ItemLock {
     // ------------------------------------------------------------------------
     /**
      * Return true if the specified player is permitted to execute commands on
-     * the item frame.
+     * the frame/stand.
      * 
-     * This could be because it is unlocked, the player owns the item frame, or
-     * is in the item frame's region as a region owner or member.
+     * This could be because it is unlocked, the player owns the frame/stand, or
+     * is in the frame/stand's region as a region owner or member.
      * 
      * @param player the player.
      * @return true if the frame is unlocked or the player is in the frame's
@@ -163,7 +172,7 @@ public class ItemLock {
         _ownerUuid = ownerUuid;
         removeTagWithPrefix(OWNER);
         if (ownerUuid != null) {
-            _frame.addScoreboardTag(OWNER + ownerUuid.toString());
+            _entity.addScoreboardTag(OWNER + ownerUuid.toString());
         }
     }
 
@@ -187,7 +196,7 @@ public class ItemLock {
         if (getRegionName() == null) {
             return null;
         } else {
-            Location loc = _frame.getLocation();
+            Location loc = _entity.getLocation();
             WorldGuardPlugin wg = ItemLocker.PLUGIN.getWorldGuard();
             RegionManager manager = wg.getRegionManager(loc.getWorld());
             return manager.getRegion(getRegionName());
@@ -204,7 +213,7 @@ public class ItemLock {
         _regionName = regionName;
         removeTagWithPrefix(REGION);
         if (regionName != null && !regionName.isEmpty()) {
-            _frame.addScoreboardTag(REGION + regionName);
+            _entity.addScoreboardTag(REGION + regionName);
         }
     }
 
@@ -217,7 +226,7 @@ public class ItemLock {
     public void setAccessGroup(PermissionGroup group) {
         _accessGroup = group;
         removeTagWithPrefix(ACCESS);
-        _frame.addScoreboardTag(ACCESS + group.getCode());
+        _entity.addScoreboardTag(ACCESS + group.getCode());
     }
 
     // ------------------------------------------------------------------------
@@ -240,7 +249,7 @@ public class ItemLock {
     public void setRotateGroup(PermissionGroup group) {
         _rotateGroup = group;
         removeTagWithPrefix(ROTATE);
-        _frame.addScoreboardTag(ROTATE + group.getCode());
+        _entity.addScoreboardTag(ROTATE + group.getCode());
     }
 
     // ------------------------------------------------------------------------
@@ -255,6 +264,96 @@ public class ItemLock {
 
     // ------------------------------------------------------------------------
     /**
+     * Return the type of the locked entity, for presentation to the user.
+     * 
+     * @return the type of the locked entity, for presentation to the user.
+     */
+    public String getEntityType() {
+        return isFrame() ? "item frame" : "armor stand";
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return true if this lock is for an ArmorStand; false for an ItemFrame.
+     * 
+     * @return true if this lock is for an ArmorStand; false for an ItemFrame.
+     */
+    public boolean isStand() {
+        return !isFrame();
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return true if this lock is for an ItemFrame; false for an ArmorStand.
+     * 
+     * @return true if this lock is for an ItemFrame; false for an ArmorStand.
+     */
+    public boolean isFrame() {
+        return (_entity instanceof ItemFrame);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return true if the entity holds no items.
+     * 
+     * @return true if the entity holds no items.
+     */
+    public boolean isEmpty() {
+        // NOTE: Entity.isEmpty() tests for vehicle passenger.
+        if (isFrame()) {
+            ItemFrame frame = (ItemFrame) _entity;
+            return isNothing(frame.getItem());
+        } else {
+            ArmorStand stand = (ArmorStand) _entity;
+            for (ItemStack item : stand.getEquipment().getArmorContents()) {
+                if (!isNothing(item)) {
+                    return false;
+                }
+            }
+            if (!isNothing(stand.getEquipment().getItemInMainHand()) ||
+                !isNothing(stand.getEquipment().getItemInOffHand())) {
+                return false;
+            }
+            return true;
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return a list of items held by the frame or stand.
+     * 
+     * @return a list of items held by the frame or stand.
+     */
+    public List<ItemStack> getItems() {
+        if (isFrame()) {
+            ItemFrame frame = (ItemFrame) _entity;
+            if (!isNothing(frame.getItem())) {
+                return Arrays.asList(frame.getItem());
+            } else {
+                return new LinkedList<ItemStack>();
+            }
+        } else {
+            ArmorStand stand = (ArmorStand) _entity;
+            ArrayList<ItemStack> standItems = new ArrayList<>();
+            for (ItemStack item : stand.getEquipment().getArmorContents()) {
+                if (!isNothing(item)) {
+                    standItems.add(item);
+                }
+            }
+            ItemStack mainHand = stand.getEquipment().getItemInMainHand();
+            if (!isNothing(mainHand)) {
+                standItems.add(mainHand);
+            }
+            ItemStack offHand = stand.getEquipment().getItemInOffHand();
+            if (!isNothing(offHand)) {
+                standItems.add(offHand);
+            }
+            return standItems;
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
      * Return a string representation useful in debugging.
      * 
      * @return a string representation useful in debugging.
@@ -263,8 +362,19 @@ public class ItemLock {
     public String toString() {
         OfflinePlayer owner = getOwner();
         String ownerName = (owner != null ? owner.getName() : "<nobody>");
-        return "owner: " + ownerName + ", region: " + getRegionName() +
+        return _entity.getType() + " owner: " + ownerName + ", region: " + getRegionName() +
                ", access: " + getAccessGroup() + ", rotate: " + getRotateGroup();
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return true if an item held in a stand or frame is nothing.
+     * 
+     * @param item the ItemStack.
+     * @return true if an item held in a stand or frame is nothing.
+     */
+    protected boolean isNothing(ItemStack item) {
+        return item == null || item.getType() == Material.AIR;
     }
 
     // ------------------------------------------------------------------------
@@ -272,7 +382,7 @@ public class ItemLock {
      * Parse the scoreboard tags of the frame to extract lock permissions.
      */
     protected void parseTags() {
-        for (String tag : _frame.getScoreboardTags()) {
+        for (String tag : _entity.getScoreboardTags()) {
             if (tag.startsWith(OWNER)) {
                 try {
                     _ownerUuid = UUID.fromString(tag.substring(OWNER.length()));
@@ -295,9 +405,9 @@ public class ItemLock {
      * @param prefix the prefix of the tag to match.
      */
     protected void removeTagWithPrefix(String prefix) {
-        for (String tag : _frame.getScoreboardTags()) {
+        for (String tag : _entity.getScoreboardTags()) {
             if (tag.startsWith(prefix)) {
-                _frame.removeScoreboardTag(tag);
+                _entity.removeScoreboardTag(tag);
                 break;
             }
         }
@@ -325,9 +435,9 @@ public class ItemLock {
     protected static final String ROTATE = "rotate:";
 
     /**
-     * The item frame whose permissions are accessed.
+     * The item frame or armour stand whose permissions are accessed.
      */
-    protected ItemFrame _frame;
+    protected Entity _entity;
 
     /**
      * The UUID of the lock owner.
@@ -340,12 +450,12 @@ public class ItemLock {
     protected String _regionName;
 
     /**
-     * The group who can access (put into and take from) the item frame.
+     * The group who can access (put into and take from) the frame/stand.
      */
     protected PermissionGroup _accessGroup = PermissionGroup.MEMBERS;
 
     /**
-     * The group who can rotate the item frame.
+     * The group who can rotate the frame/stand.
      */
     protected PermissionGroup _rotateGroup = PermissionGroup.NOBODY;
 
