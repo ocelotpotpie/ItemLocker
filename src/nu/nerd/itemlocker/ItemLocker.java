@@ -26,6 +26,8 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.CreatureSpawnEvent.SpawnReason;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
@@ -313,6 +315,24 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
     // ------------------------------------------------------------------------
     /**
+     * Prevent damage to armour stands by anything that is not a player attack.
+     * 
+     * That includes fire, lava and projectiles. Player attacks are handled in
+     * {@link ItemLocker#onEntityDamageByEntity()}.
+     */
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    protected void onEntityDamage(EntityDamageEvent event) {
+        Entity entity = event.getEntity();
+        if (entity.getType() == EntityType.ARMOR_STAND && event.getCause() != DamageCause.ENTITY_ATTACK) {
+            ItemLock lock = new ItemLock(entity);
+            if (lock.isOwned()) {
+                event.setCancelled(true);
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------------
+    /**
      * Don't let item frames that have an owner break, except when broken
      * directly by:
      * <ul>
@@ -331,7 +351,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         Player player = (event.getRemover() instanceof Player) ? (Player) event.getRemover() : null;
         boolean bypassing = (player != null && getMetadata(player, BYPASS_KEY) != null);
 
-        if (!bypassing && !lock.permits(player)) {
+        if (!bypassing && !lock.canBeAccessedBy(player)) {
             event.setCancelled(true);
             if (player != null) {
                 accessDeniedMessage(player, "break", lock);
@@ -714,4 +734,5 @@ public class ItemLocker extends JavaPlugin implements Listener {
      * CreatureSpawnEvent when the stand entity spawns.
      */
     private final ArrayList<StandPlacement> _placements = new ArrayList<>();
+
 } // class ItemLocker
