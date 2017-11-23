@@ -12,8 +12,7 @@ Features
    (if configured).   
  * Allows control over which players can put items into and take items from a
    frame or stand.
- * Allows control over which players can rotate frames. By default, locked 
-   frames cannot be rotated.
+ * Allows control over which players can rotate frames.
  * Allows the owners of frames and stands to deny themselves these
    put/take/rotate permissions so that they cannot accidentally alter them.
  * Prevents explosions, projectiles and obstruction from damaging locked frames
@@ -55,7 +54,7 @@ permission groups.)
  1. The rotate group, which can be abbreviated in commands as _r_, is the set
     of players that can rotate the frame.
     
-Armor stands only have _access_ group.
+Armor stands only have an _access_ group.
 
 Each group can be one of three settings: 
 
@@ -66,8 +65,8 @@ Each group can be one of three settings:
 For the _access_ group, the default setting for new locks is to allow the 
 owner and region, i.e. `+access` (`+a`).
 
-For the _rotate_ group, the default setting for new locks is to deny everybody, 
-i.e. `-rotate` (`-r`).
+For the _rotate_ group, the default setting for new locks is to allow the 
+owner and region, i.e. `+rotate` (`+r`).
 
 
 Region Inference
@@ -88,6 +87,42 @@ don't specify a region in the `/ilock` arguments (or specify `r:-`), no
 region will be set on the frame/stand.
 
 
+Per-Player Defaults
+-------------------
+Using the `/idefault` command, a player can set a default region, access
+group and rotate group that will be applied to every frame or stand when it
+is locked. If the frame or stand is locked automatically when placed, then
+the per-player defaults simply override the global defaults (inferred region,
+members access, members rotate). The parameters of the `/idefault` command
+are the same as those of `/imodify`, except that you can not set a default
+owner (player name).
+
+If the `/ilock` command is run immediately prior to placing a frame or stand,
+then the region and groups (if any) given to `/ilock` take precedence over
+the player's defaults.
+
+The default region set by `/idefault` takes precedence over any region
+automatically inferred from the location where the frame or stand is placed.
+For example, `/idefault r:myregion` ensures that all placed frames/stands
+will have the "myregion" region, by default. You can use `/idefault r:-` to
+specify that they will have no region, even where region inference would
+normally come into play.
+
+If you want to re-enable region inference, simply omit the region argument to 
+the `/idefault` command. Just running `/idefault` will clear the default 
+region without changing the default access or rotate groups set by the player.
+
+The global default permissions of frames and stands are equivalent to
+`/idefault +access +rotate`.
+
+To allow all subsequent frames that you place to be rotated by anyone on the
+server unless overridden with `/ilock` or `/imodify`, use 
+`/idefault *rotate` or `/idefault *r`.
+
+To prevent everyone on the server, even yourself, from rotating all subsequent
+frames that you place, use `/idefault -rotate` or `/idefault -r`.
+
+
 Locking a Frame or Stand
 ------------------------
  * If auto-locking is enabled, simply place the item frame or armor stand to 
@@ -102,8 +137,8 @@ Locking a Frame or Stand
    click on it to lock it.
  
  * To lock a frame or stand and allow everyone in the _my_town_ region to put 
-   and take the item, but not rotate it: `/ilock r:my_town`
-   (Recall that frames are locked with groups `+access` and `-rotate`, by default.)
+   and take the item, but not rotate it: `/ilock r:my_town -rotate`
+   (Recall that frames are locked with groups `+access` and `+rotate`, by default.)
 
  * To lock many frames or stands with the same setting, precede that command 
    with `/ipersist`.
