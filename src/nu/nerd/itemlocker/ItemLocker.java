@@ -1,5 +1,7 @@
 package nu.nerd.itemlocker;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
@@ -15,6 +17,7 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.ItemFrame;
@@ -34,6 +37,8 @@ import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.metadata.Metadatable;
@@ -81,9 +86,30 @@ public class ItemLocker extends JavaPlugin implements Listener {
         saveDefaultConfig();
         CONFIG.reload();
 
+        File playersFile = new File(getDataFolder(), PLAYERS_FILE);
+        _playerConfig = YamlConfiguration.loadConfiguration(playersFile);
+
         Bukkit.getPluginManager().registerEvents(this, this);
 
         _worldGuard = (WorldGuardPlugin) Bukkit.getPluginManager().getPlugin("WorldGuard");
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * @see org.bukkit.plugin.java.JavaPlugin#onDisable()
+     */
+    @Override
+    public void onDisable() {
+        Bukkit.getScheduler().cancelTasks(this);
+        for (PlayerState state : _state.values()) {
+            state.save(_playerConfig);
+        }
+
+        try {
+            _playerConfig.save(new File(getDataFolder(), PLAYERS_FILE));
+        } catch (IOException ex) {
+            getLogger().warning("Unable to save player data: " + ex.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------------
@@ -165,6 +191,14 @@ public class ItemLocker extends JavaPlugin implements Listener {
                     String ownerMessage = player.equals(owner) ? "you" : owner.getName();
                     sender.sendMessage(ChatColor.GREEN + "The next frame or stand you place or right click will be locked to " +
                                        ChatColor.YELLOW + ownerMessage + ChatColor.GREEN + ".");
+
+                    // Apply the player's /idefault permissions, but only if
+                    // locking their own item frame.
+                    if (permissions.getOwner() == null || permissions.getOwner() == player) {
+                        PlayerState state = getState(player);
+                        PermissionChange defaultPermissions = state.asPermissionChange();
+                        permissions = defaultPermissions.overriddenBy(permissions);
+                    }
                     commandArgs.put("permissions", permissions);
                 }
 
@@ -199,6 +233,40 @@ public class ItemLocker extends JavaPlugin implements Listener {
                 }
 
                 sender.sendMessage(ChatColor.GREEN + "Right click a frame or stand to see who owns it.");
+
+            } else if (commandName.equals("idefault")) {
+                Object parsed = PermissionChange.parse(player, args);
+                if (parsed instanceof String) {
+                    sender.sendMessage(ChatColor.RED + (String) parsed);
+                    return true;
+                } else {
+                    PermissionChange permissions = (PermissionChange) parsed;
+                    if (permissions.getOwner() != null && !permissions.getOwner().equals(player)) {
+                        sender.sendMessage(ChatColor.RED + "You cannot set another player as the default owner of your frames and stands.");
+                        return true;
+                    }
+
+                    PlayerState state = getState(player);
+                    state.setDefaultRegionName(permissions.getRegionName());
+                    if (permissions.getAccessGroup() != null) {
+                        state.setDefaultAccessGroup(permissions.getAccessGroup());
+                    }
+                    if (permissions.getRotateGroup() != null) {
+                        state.setDefaultRotateGroup(permissions.getRotateGroup());
+                    }
+
+                    sender.sendMessage(ChatColor.GREEN + "Your default frame/stand permissions are now:");
+                    StringBuilder message = new StringBuilder();
+                    message.append(ChatColor.GOLD).append("Region: ");
+                    message.append(getRegionString(state.getDefaultRegionName()));
+
+                    PermissionGroup access = (state.getDefaultAccessGroup() == null) ? PermissionGroup.MEMBERS : state.getDefaultAccessGroup();
+                    PermissionGroup rotate = (state.getDefaultRotateGroup() == null) ? PermissionGroup.MEMBERS : state.getDefaultRotateGroup();
+                    message.append(ChatColor.GOLD).append(", access: ").append(access.formatted());
+                    message.append(ChatColor.GOLD).append(", rotate: ").append(rotate.formatted());
+                    sender.sendMessage(message.toString());
+                    return true;
+                }
             }
 
             // Drop the leading 'i' in the command name.
@@ -209,6 +277,26 @@ public class ItemLocker extends JavaPlugin implements Listener {
             return true;
         }
     } // onCommand
+
+    // ------------------------------------------------------------------------
+    /**
+     * On join, allocate each player a {@link PlayerState} instance.
+     */
+    @EventHandler(ignoreCancelled = true)
+    protected void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        _state.put(player.getName(), new PlayerState(player, _playerConfig));
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * On quit, forget the {@link PlayerState}.
+     */
+    @EventHandler(ignoreCancelled = true)
+    protected void onPlayerQuit(PlayerQuitEvent event) {
+        PlayerState state = _state.remove(event.getPlayer().getName());
+        state.save(_playerConfig);
+    }
 
     // ------------------------------------------------------------------------
     /**
@@ -413,12 +501,14 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
         // If the player runs /ilock before placing, use owner/region from
         // that.
+        boolean handled = false;
         MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
         if (actionMeta != null) {
             Map<String, Object> args = (Map<String, Object>) actionMeta.value();
             if (args.get("command").equals("lock")) {
                 PermissionChange permissions = (PermissionChange) args.get("permissions");
                 doLock(player, lock, permissions);
+                handled = true;
 
                 boolean persistent = (getMetadata(player, PERSIST_KEY) != null);
                 if (!persistent) {
@@ -426,20 +516,25 @@ public class ItemLocker extends JavaPlugin implements Listener {
                 }
             }
 
-        } else if (CONFIG.AUTO_LOCK) {
-            // Infer permissions from context.
-            Set<String> regions = null;
-            String regionName = null;
+        }
 
-            if (CONFIG.AUTO_LOCK_REGION) {
+        if (!handled && CONFIG.AUTO_LOCK) {
+            PlayerState state = getState(player);
+            String regionName = state.getDefaultRegionName();
+            boolean doRegionInference = (CONFIG.AUTO_LOCK_REGION && regionName == null);
+            Set<String> regions = null;
+
+            if (doRegionInference) {
+                // Infer region name from context.
                 regions = getMostSpecificRegionNames(entity.getLocation());
                 if (regions.size() == 1) {
                     regionName = regions.stream().findFirst().get();
                 }
             }
 
-            doLock(player, lock, new PermissionChange(player, regionName, PermissionGroup.MEMBERS, PermissionGroup.NOBODY));
-            if (regions != null && regions.size() > 1) {
+            PermissionChange defaultLock = new PermissionChange(player, regionName, PermissionGroup.MEMBERS, PermissionGroup.MEMBERS);
+            doLock(player, lock, defaultLock.overriddenBy(state.asPermissionChange()));
+            if (doRegionInference && regions != null && regions.size() > 1) {
                 player.sendMessage(ChatColor.GOLD + "Multiple regions exist here: " +
                                    regions.stream().map((r) -> ChatColor.YELLOW + r)
                                    .collect(Collectors.joining(ChatColor.GOLD + ", ")));
@@ -540,8 +635,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
             String region = lock.getRegionName();
             String ownerDescription = (owner != null) ? ChatColor.YELLOW + owner.getName()
                                                       : ChatColor.LIGHT_PURPLE + "<nobody>";
-            String regionDescription = (region != null) ? ChatColor.YELLOW + region
-                                                        : ChatColor.LIGHT_PURPLE + "<none>";
+            String regionDescription = getRegionString(region);
             player.sendMessage(ChatColor.GOLD + "Owner: " + ownerDescription +
                                ChatColor.GOLD + ", region: " + regionDescription);
             permissionMessage(player, lock);
@@ -658,6 +752,20 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
     // ------------------------------------------------------------------------
     /**
+     * Return a coloured string describing a region name.
+     * 
+     * Rather than omitting the region, a null region is shown as "<none>".
+     * 
+     * @param region the name of the region.
+     * @return a description of the region for presentation.
+     */
+    protected String getRegionString(String region) {
+        return (region != null) ? ChatColor.YELLOW + region
+                                : ChatColor.LIGHT_PURPLE + "<none>";
+    }
+
+    // ------------------------------------------------------------------------
+    /**
      * Compute the names of the most specific WorldGuard regions at a location.
      * 
      * If a child region overlaps its parent at a location, then the parent is
@@ -702,6 +810,22 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
     // ------------------------------------------------------------------------
     /**
+     * Return the {@link PlayerState} for the specified player.
+     *
+     * @param player the player.
+     * @return the {@link PlayerState} for the specified player.
+     */
+    protected PlayerState getState(Player player) {
+        return _state.get(player.getName());
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Name of players file.
+     */
+    private static final String PLAYERS_FILE = "players.yml";
+
+    /**
      * Metadata key for metadata recording the name and arguments of the
      * player's last frame/stand action.
      */
@@ -735,4 +859,15 @@ public class ItemLocker extends JavaPlugin implements Listener {
      */
     private final ArrayList<StandPlacement> _placements = new ArrayList<>();
 
+    /**
+     * Map from Player name to {@link PlayerState} instance.
+     *
+     * A Player's PlayerState exists only for the duration of a login.
+     */
+    private final HashMap<String, PlayerState> _state = new HashMap<>();
+
+    /**
+     * Configuration file for per-player settings.
+     */
+    private YamlConfiguration _playerConfig;
 } // class ItemLocker

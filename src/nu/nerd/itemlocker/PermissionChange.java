@@ -42,7 +42,7 @@ public class PermissionChange {
                         WorldGuardPlugin wg = ItemLocker.PLUGIN.getWorldGuard();
                         RegionManager manager = wg.getRegionManager(player.getLocation().getWorld());
                         if (manager.getRegion(regionName) == null) {
-                            return "There's no region named " + regionName + " in this world!";
+                            return "There's no region named '" + regionName + "' in this world!";
                         }
                     }
                 }
@@ -86,6 +86,28 @@ public class PermissionChange {
 
         return new PermissionChange(owner, regionName, accessGroup, rotateGroup);
     } // parse
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return a new PermissionChange instance with region and groups overridden
+     * by the specified instance.
+     * 
+     * If any of the region name, access group, or rotate group of the change
+     * are non null, they will take precedence over the attributes copied from
+     * this instance.
+     * 
+     * @param change the instance whose non-null attributes take precendence in
+     *        the result.
+     * @return a new PermissionChange instance based on this, but with
+     *         attributes overridden by the non-null attributes of the
+     *         parameter.
+     */
+    public PermissionChange overriddenBy(PermissionChange change) {
+        return new PermissionChange(getOwner(),
+            (change.getRegionName() != null) ? change.getRegionName() : getRegionName(),
+            (change.getAccessGroup() != null) ? change.getAccessGroup() : getAccessGroup(),
+            (change.getRotateGroup() != null) ? change.getRotateGroup() : getRotateGroup());
+    }
 
     // ------------------------------------------------------------------------
     /**

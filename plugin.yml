@@ -4,7 +4,6 @@ author: totemo
 authors: []
 description: ${project.description}
 website: ${project.url}
-database: true
 main: nu.nerd.itemlocker.ItemLocker
 softdepend: []
 depend: [WorldGuard]
@@ -106,3 +105,15 @@ commands:
       §e/<command> help§f - Show usage help.
       §e/<command>§f - Show the permissions of the next item frame or
       armor stand you right click on.
+    
+  idefault:
+    description: Set default permissions of item frames and stands when locked.
+    permission: itemlocker.user
+    usage: |
+    
+      §e/<command> help§f - Show usage help.
+      §e/<command> §f[§er:<region>§f] [(§e-§f|§e+§f|§e*§f)§eaccess§f] [(§e-§f|§e+§f|§e*§f)§erotate§f]
+        - Set default permissions of item frames and stands when
+          locked. These permissions are overridden by the permissions
+          specified in an §e/ilock§f command. See §e/help imodify§f for details
+          on the meaning of the arguments.

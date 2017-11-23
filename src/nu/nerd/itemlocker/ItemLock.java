@@ -457,6 +457,6 @@ public class ItemLock {
     /**
      * The group who can rotate the frame/stand.
      */
-    protected PermissionGroup _rotateGroup = PermissionGroup.NOBODY;
+    protected PermissionGroup _rotateGroup = PermissionGroup.MEMBERS;
 
 } // class ItemLock
