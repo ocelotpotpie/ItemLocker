@@ -147,8 +147,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                 return true;
             }
 
-            boolean isBypassing = (getMetadata(player, BYPASS_KEY) != null);
-            if (isBypassing) {
+            if (isBypassing(player)) {
                 player.sendMessage(ChatColor.GOLD + "You will no longer bypass frame/stand permission checks.");
                 player.removeMetadata(BYPASS_KEY, this);
             } else {
@@ -381,7 +380,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         // If a player directly left clicks, message them when denied.
         if (event.getDamager() instanceof Player) {
             Player player = (Player) event.getDamager();
-            boolean bypassing = (getMetadata(player, BYPASS_KEY) != null);
+            boolean bypassing = isBypassing(player);
 
             if (CONFIG.DEBUG_EVENTS) {
                 getLogger().info("onEntityDamageByEntity: " + player.getName() + " " + lock +
@@ -437,7 +436,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         ItemFrame frame = (ItemFrame) event.getEntity();
         ItemLock lock = new ItemLock(frame);
         Player player = (event.getRemover() instanceof Player) ? (Player) event.getRemover() : null;
-        boolean bypassing = (player != null && getMetadata(player, BYPASS_KEY) != null);
+        boolean bypassing = (player != null && isBypassing(player));
 
         if (!bypassing && !lock.canBeAccessedBy(player)) {
             event.setCancelled(true);
@@ -556,7 +555,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         Entity entity = event.getRightClicked();
         ItemLock lock = new ItemLock(entity);
         Player player = event.getPlayer();
-        boolean bypassing = (getMetadata(player, BYPASS_KEY) != null);
+        boolean bypassing = isBypassing(player);
 
         if (CONFIG.DEBUG_EVENTS) {
             getLogger().info("handleInteraction: " + player.getName() + " " + lock +
@@ -788,6 +787,25 @@ public class ItemLocker extends JavaPlugin implements Listener {
             }
         }
         return new TreeSet<String>(distinctRegions.stream().map((r) -> r.getId()).collect(Collectors.toList()));
+    }
+
+    // ------------------------------------------------------------------------
+    /**
+     * Return true if the player can currently bypass permission checks.
+     * 
+     * If the player had bypass metadata set and the permission to set it has
+     * since been revoked, the metadata is removed. This prevents mods from
+     * enabling bypass mode and retaining it when they leave ModMode.
+     * 
+     * @param player the player.
+     * @return true if the player can currently bypass permission checks.
+     */
+    protected boolean isBypassing(Player player) {
+        if (!player.hasPermission("itemlocker.bypass")) {
+            player.removeMetadata(BYPASS_KEY, this);
+        }
+
+        return (getMetadata(player, BYPASS_KEY) != null);
     }
 
     // ------------------------------------------------------------------------
