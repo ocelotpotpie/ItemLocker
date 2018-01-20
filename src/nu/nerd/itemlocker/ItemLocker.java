@@ -435,12 +435,16 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
         ItemFrame frame = (ItemFrame) event.getEntity();
         ItemLock lock = new ItemLock(frame);
-        Player player = (event.getRemover() instanceof Player) ? (Player) event.getRemover() : null;
-        boolean bypassing = (player != null && isBypassing(player));
+        if (!lock.isOwned()) {
+            return;
+        }
 
-        if (!bypassing && !lock.canBeAccessedBy(player)) {
+        Player player = (event.getRemover() instanceof Player) ? (Player) event.getRemover() : null;
+        if (player == null) {
             event.setCancelled(true);
-            if (player != null) {
+        } else {
+            if (!isBypassing(player) && !lock.canBeAccessedBy(player)) {
+                event.setCancelled(true);
                 accessDeniedMessage(player, "break", lock);
             }
         }
