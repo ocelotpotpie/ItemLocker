@@ -32,6 +32,10 @@ public class StandPlacement {
      * 
      * The full world time is derived from the location's world.
      * 
+     * Stands placed on a single layer of snow get boosted a block upwards, but
+     * the snow is destroyed before the event, so there is no way to detect the
+     * situation. Simply allow some variance in the Y coordinate.
+     * 
      * @param loc the location of the CreatureSpawnEvent of an ArmorStand.
      * @return true if this StandPlacement is for the same stand.
      */
@@ -39,7 +43,7 @@ public class StandPlacement {
         return _time == loc.getWorld().getFullTime() &&
                _location.getWorld() == loc.getWorld() &&
                _location.getBlockX() == loc.getBlockX() &&
-               _location.getBlockY() == loc.getBlockY() &&
+               (_location.getBlockY() == loc.getBlockY() || _location.getBlockY() == loc.getBlockY() + 1) &&
                _location.getBlockZ() == loc.getBlockZ();
     }
 

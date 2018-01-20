@@ -311,6 +311,10 @@ public class ItemLocker extends JavaPlugin implements Listener {
             event.getMaterial() == Material.ARMOR_STAND) {
             Block standBlock = event.getClickedBlock().getRelative(event.getBlockFace());
             Location loc = standBlock.getLocation().add(0.5, 0, 0.5);
+            if (CONFIG.DEBUG_EVENTS) {
+                getLogger().info("onPlayerInteract: placed stand on " +
+                                 standBlock.getType() + ":" + (int) standBlock.getData() + " at Y " + loc.getBlockY());
+            }
             _placements.add(new StandPlacement(event.getPlayer(), loc));
         }
     }
@@ -325,6 +329,9 @@ public class ItemLocker extends JavaPlugin implements Listener {
     protected void onCreatureSpawn(CreatureSpawnEvent event) {
         if (event.getEntityType() == EntityType.ARMOR_STAND &&
             event.getSpawnReason() == SpawnReason.DEFAULT) {
+            if (CONFIG.DEBUG_EVENTS) {
+                getLogger().info("onCreatureSpawn: stand spawn at Y " + event.getLocation().getBlockY());
+            }
             for (int i = _placements.size() - 1; i >= 0; --i) {
                 StandPlacement placement = _placements.get(i);
                 Location loc = event.getLocation();
