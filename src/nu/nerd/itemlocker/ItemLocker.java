@@ -45,7 +45,6 @@ import org.bukkit.metadata.Metadatable;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
-import com.sk89q.worldguard.protection.ApplicableRegionSet;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 
@@ -788,9 +787,10 @@ public class ItemLocker extends JavaPlugin implements Listener {
      */
     protected Set<String> getMostSpecificRegionNames(Location loc) {
         RegionManager manager = getWorldGuard().getRegionManager(loc.getWorld());
-        ApplicableRegionSet applicableRegions = manager.getApplicableRegions(loc);
-        Set<ProtectedRegion> distinctRegions = applicableRegions.getRegions();
-        for (ProtectedRegion region : applicableRegions.getRegions()) {
+        // Clone set to avoid observed concurrent modification exception.
+        Set<ProtectedRegion> applicableRegions = new TreeSet<>(manager.getApplicableRegions(loc).getRegions());
+        Set<ProtectedRegion> distinctRegions = new TreeSet<>(applicableRegions);
+        for (ProtectedRegion region : applicableRegions) {
             ProtectedRegion ancestor = region.getParent();
             while (ancestor != null) {
                 distinctRegions.remove(ancestor);
