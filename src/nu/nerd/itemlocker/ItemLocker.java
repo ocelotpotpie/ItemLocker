@@ -14,6 +14,7 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -44,9 +45,12 @@ import org.bukkit.metadata.MetadataValue;
 import org.bukkit.metadata.Metadatable;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
+import com.sk89q.worldguard.protection.regions.RegionContainer;
 
 // ----------------------------------------------------------------------------
 /**
@@ -312,7 +316,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
             Location loc = standBlock.getLocation().add(0.5, 0, 0.5);
             if (CONFIG.DEBUG_EVENTS) {
                 getLogger().info("onPlayerInteract: placed stand on " +
-                                 standBlock.getType() + ":" + (int) standBlock.getData() + " at Y " + loc.getBlockY());
+                                 standBlock.getType() + " at Y " + loc.getBlockY());
             }
             _placements.add(new StandPlacement(event.getPlayer(), loc));
         }
@@ -513,6 +517,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         boolean handled = false;
         MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
         if (actionMeta != null) {
+            @SuppressWarnings("unchecked")
             Map<String, Object> args = (Map<String, Object>) actionMeta.value();
             if (args.get("command").equals("lock")) {
                 PermissionChange permissions = (PermissionChange) args.get("permissions");
@@ -575,7 +580,9 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
         MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
         if (actionMeta != null) {
-            performCommandAction(player, bypassing, lock, (Map<String, Object>) actionMeta.value());
+            @SuppressWarnings("unchecked")
+            Map<String, Object> args = (Map<String, Object>) actionMeta.value();
+            performCommandAction(player, bypassing, lock, args);
             event.setCancelled(true);
 
             boolean persistent = (getMetadata(player, PERSIST_KEY) != null);
@@ -775,6 +782,19 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
     // ------------------------------------------------------------------------
     /**
+     * Return the WorldGuard RegionManager for the specified Bukkit World.
+     * 
+     * @param world the World.
+     * @return the WorldGuard RegionManager for the specified Bukkit World.
+     */
+    protected static RegionManager getRegionManager(World world) {
+        com.sk89q.worldedit.world.World weWorld = BukkitAdapter.adapt(world);
+        RegionContainer regionContainer = WorldGuard.getInstance().getPlatform().getRegionContainer();
+        return regionContainer.get(weWorld);
+    }
+
+    // ------------------------------------------------------------------------
+    /**
      * Compute the names of the most specific WorldGuard regions at a location.
      * 
      * If a child region overlaps its parent at a location, then the parent is
@@ -786,9 +806,11 @@ public class ItemLocker extends JavaPlugin implements Listener {
      *         location.
      */
     protected Set<String> getMostSpecificRegionNames(Location loc) {
-        RegionManager manager = getWorldGuard().getRegionManager(loc.getWorld());
+        com.sk89q.worldedit.Vector vector = BukkitAdapter.asVector(loc);
+        RegionManager manager = getRegionManager(loc.getWorld());
+
         // Clone set to avoid observed concurrent modification exception.
-        Set<ProtectedRegion> applicableRegions = new TreeSet<>(manager.getApplicableRegions(loc).getRegions());
+        Set<ProtectedRegion> applicableRegions = new TreeSet<>(manager.getApplicableRegions(vector).getRegions());
         Set<ProtectedRegion> distinctRegions = new TreeSet<>(applicableRegions);
         for (ProtectedRegion region : applicableRegions) {
             ProtectedRegion ancestor = region.getParent();

@@ -7,6 +7,7 @@ website: ${project.url}
 main: nu.nerd.itemlocker.ItemLocker
 softdepend: []
 depend: [WorldGuard]
+api-version: 1.13
 
 permissions:
   itemlocker.console:
@@ -72,11 +73,11 @@ commands:
       §e/<command> help§f - Show usage help.
       §e/<command> §f[§er:<region>§f] [(§e-§f|§e+§f|§e*§f)§eaccess§f] [(§e-§f|§e+§f|§e*§f)§erotate§f] 
         - Change the region and/or permission groups of a frame or
-          stand. Use §e/<command> r:-§f to clear an existing region.
-          Item frames record §eaccess§f and §erotate§f groups, whereas
-          armor stands only record the former. The §eaccess§f group
-          (which can be abbreviated as §ea§f) is the set of players that
-          can put into and take from the frame/stand. The §erotate§f group
+          stand. Use §e/<command> r:-§f to clear an existing region. Item
+          frames record §eaccess§f and §erotate§f groups, whereas armor
+          stands only record the former. The §eaccess§f group (which can
+          be abbreviated as §ea§f) is the set of players that can put 
+          into and take from the frame/stand. The §erotate§f group
           (which can be abbreviated as §er§f), is the set of players that
           can rotate the frame. Each group can be one of three
           settings: nobody (§e-§f), members (§e+§f), or public (§e*§f).

@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
 
-import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.managers.RegionManager;
 
 // ----------------------------------------------------------------------------
@@ -24,6 +23,7 @@ public class PermissionChange {
      * @return either a PermissionChange instance encoding the arguments, or a
      *         String containing the error to show to the command sender.
      */
+    @SuppressWarnings("deprecation")
     public static Object parse(Player player, String[] args) {
         OfflinePlayer owner = null;
         String regionName = null;
@@ -39,8 +39,7 @@ public class PermissionChange {
                     regionName = arg.substring(2);
                     // If not '-' (remove region), check for valid region.
                     if (!regionName.equals("-")) {
-                        WorldGuardPlugin wg = ItemLocker.PLUGIN.getWorldGuard();
-                        RegionManager manager = wg.getRegionManager(player.getLocation().getWorld());
+                        RegionManager manager = ItemLocker.getRegionManager(player.getLocation().getWorld());
                         if (manager.getRegion(regionName) == null) {
                             return "There's no region named '" + regionName + "' in this world!";
                         }
