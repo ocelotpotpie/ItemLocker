@@ -40,12 +40,14 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.metadata.MetadataValue;
 import org.bukkit.metadata.Metadatable;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import com.sk89q.worldedit.bukkit.BukkitAdapter;
+import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldguard.WorldGuard;
 import com.sk89q.worldguard.bukkit.WorldGuardPlugin;
 import com.sk89q.worldguard.protection.managers.RegionManager;
@@ -395,7 +397,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
             if (CONFIG.DEBUG_EVENTS) {
                 getLogger().info("onEntityDamageByEntity: " + player.getName() + " " + lock +
                                  (bypassing ? " bypass" : "") + " " +
-                                 lock.getItems().stream().map((i) -> i.toString()).collect(Collectors.joining(", ")));
+                                 lock.getItems().stream().map(ItemStack::toString).collect(Collectors.joining(", ")));
             }
 
             if (!bypassing && !lock.canBeAccessedBy(player)) {
@@ -548,7 +550,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
 
             PermissionChange defaultLock = new PermissionChange(player, regionName, PermissionGroup.MEMBERS, PermissionGroup.MEMBERS);
             doLock(player, lock, defaultLock.overriddenBy(state.asPermissionChange()));
-            if (doRegionInference && regions != null && regions.size() > 1) {
+            if (doRegionInference && regions.size() > 1) {
                 player.sendMessage(ChatColor.GOLD + "Multiple regions exist here: " +
                                    regions.stream().map((r) -> ChatColor.YELLOW + r)
                                    .collect(Collectors.joining(ChatColor.GOLD + ", ")));
@@ -575,7 +577,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
         if (CONFIG.DEBUG_EVENTS) {
             getLogger().info("handleInteraction: " + player.getName() + " " + lock +
                              (bypassing ? " bypass" : "") + " " +
-                             lock.getItems().stream().map((i) -> i.toString()).collect(Collectors.joining(", ")));
+                             lock.getItems().stream().map(ItemStack::toString).collect(Collectors.joining(", ")));
         }
 
         MetadataValue actionMeta = getMetadata(player, ACTION_KEY);
@@ -806,7 +808,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
      *         location.
      */
     protected Set<String> getMostSpecificRegionNames(Location loc) {
-        com.sk89q.worldedit.Vector vector = BukkitAdapter.asVector(loc);
+        BlockVector3 vector = BlockVector3.at(loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
         RegionManager manager = getRegionManager(loc.getWorld());
 
         // Clone set to avoid observed concurrent modification exception.
@@ -819,7 +821,7 @@ public class ItemLocker extends JavaPlugin implements Listener {
                 ancestor = ancestor.getParent();
             }
         }
-        return new TreeSet<String>(distinctRegions.stream().map((r) -> r.getId()).collect(Collectors.toList()));
+        return distinctRegions.stream().map(ProtectedRegion::getId).collect(Collectors.toCollection(TreeSet::new));
     }
 
     // ------------------------------------------------------------------------
