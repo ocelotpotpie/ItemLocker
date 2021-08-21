@@ -3,15 +3,15 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>nu.nerd</groupId>
 	<name>ItemLocker</name>
-	<artifactId>${project.name}</artifactId>
+	<artifactId>ItemLocker</artifactId>
 	<version>1.3.1</version>
 	<packaging>jar</packaging>
 	<description>Locks the orientation of item frames.</description>
-	<url>https://github.com/NerdNu/${project.name}</url>
+	<url>https://github.com/NerdNu/ItemLocker</url>
 	<scm>
-		<connection>scm:git:git://github.com/NerdNu/${project.name}.git</connection>
-		<url>https://github.com/NerdNu/${project.name}</url>
-		<developerConnection>scm:git:git://github.com/NerdNu/${project.name}.git</developerConnection>
+		<connection>scm:git:git://github.com/NerdNu/ItemLocker.git</connection>
+		<url>https://github.com/NerdNu/ItemLocker</url>
+		<developerConnection>scm:git:git://github.com/NerdNu/ItemLocker.git</developerConnection>
 	</scm>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -22,20 +22,20 @@
 			<url>https://hub.spigotmc.org/nexus/content/groups/public/</url>
 		</repository>
 		<repository>
-			<id>sk89q-repo</id>
-			<url>http://maven.sk89q.com/repo/</url>
+			<id>enginehub-repo</id>
+			<url>https://maven.enginehub.org/repo/</url>
 		</repository>
 	</repositories>
 	<dependencies>
 		<dependency>
 			<groupId>org.spigotmc</groupId>
 			<artifactId>spigot-api</artifactId>
-			<version>1.13.2-R0.1-SNAPSHOT</version>
+			<version>1.17.1-R0.1-SNAPSHOT</version>
 		</dependency>
 		<dependency>
 			<groupId>com.sk89q.worldguard</groupId>
-			<artifactId>worldguard-legacy</artifactId>
-			<version>7.0.0-SNAPSHOT</version>
+			<artifactId>worldguard-bukkit</artifactId>
+			<version>7.0.6-SNAPSHOT</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -62,7 +62,7 @@
 						<archive>
 							<addMavenDescriptor>false</addMavenDescriptor>
 						</archive>
-						<finalName>${project.artifactId}-${project.version}</finalName>
+						<finalName>ItemLocker-${project.version}</finalName>
 					</configuration>
 				</plugin>
 				<plugin>
@@ -70,8 +70,8 @@
 					<artifactId>maven-compiler-plugin</artifactId>
 					<version>2.0.2</version>
 					<configuration>
-						<source>1.8</source>
-						<target>1.8</target>
+						<source>16</source>
+						<target>16</target>
 					</configuration>
 				</plugin>
 			</plugins>
